@@ -18,7 +18,6 @@
 
 ;;; ASYNC LOADING SUPPORT
 
-
 (defn- get-or-create-state [states k]
   ; we cannot do loading directly in atom's swap function as it can be invoked multiple times with the same state
   ; hence we add :first? attribute that gets reset to false on every subsequent invocation
@@ -76,7 +75,6 @@
 
 
 ;;; REMOTE CACHE
-
 
 (defn- blackhole-memcache-logging []
   (System/setProperty "net.spy.log.LoggerImpl" "net.spy.memcached.compat.log.SunLogger")
@@ -210,7 +208,6 @@
 
 ;;; LOCAL CACHE
 
-
 (def ^:private local-cache (-> (ExpiringMap/builder) (.variableExpiration) (.build)))
 
 (defn lget
@@ -249,7 +246,6 @@
 
 
 ;;; 2 LEVEL CACHE (LOCAL + REMOTE)
-
 
 (defn get
   "Gets value from a 2-level cache (local+memcache). If key is not in local
