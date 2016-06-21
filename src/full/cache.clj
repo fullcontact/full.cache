@@ -10,7 +10,7 @@
            (java.util.concurrent TimeUnit)
            (clojure.core.async.impl.protocols ReadPort)
            (net.spy.memcached MemcachedClient BinaryConnectionFactory AddrUtil))
-  (:refer-clojure :exclude [set, get]))
+  (:refer-clojure :exclude [set get]))
 
 
 (def memcache-address (opt :memcache-address :default nil))
