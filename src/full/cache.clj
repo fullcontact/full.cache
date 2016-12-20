@@ -13,7 +13,7 @@
   (:refer-clojure :exclude [set get]))
 
 
-(def memcache-address (opt :memcache-address :default nil))
+(def memcache-address (opt :memcache-address))
 
 
 ;;; ASYNC LOADING SUPPORT
