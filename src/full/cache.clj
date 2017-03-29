@@ -13,10 +13,11 @@
   (:refer-clojure :exclude [set get]))
 
 
-(def memcache-address (opt :memcache-address))
+(def memcache-address (opt :memcache-address :default nil))
 
 
 ;;; ASYNC LOADING SUPPORT
+
 
 (defn- get-or-create-state [states k]
   ; we cannot do loading directly in atom's swap function as it can be invoked multiple times with the same state
@@ -28,8 +29,8 @@
           ; and we want to distribute same value from loader to all requests
           mult (mult in-chan)]
       (assoc states k {:in-chan in-chan
-                       :mult mult
-                       :first? true}))))
+                       :mult    mult
+                       :first?  true}))))
 
 ::none
 
@@ -47,7 +48,7 @@
 (defn- do-get-or-load>
   [k loader> timeout {:keys [setf getf states]}]
   (go-try
-    (none->nil  ; :none keyword means that nil value is cached, convert back to nil
+    (none->nil                                              ; :none keyword means that nil value is cached, convert back to nil
       (or (getf k)
           ; value missing - load it
           (let [new-states (swap! states get-or-create-state k)
@@ -76,97 +77,102 @@
 
 ;;; REMOTE CACHE
 
+
 (defn- blackhole-memcache-logging []
   (System/setProperty "net.spy.log.LoggerImpl" "net.spy.memcached.compat.log.SunLogger")
   (.setLevel (Logger/getLogger "net.spy.memcached") Level/SEVERE))
 
 (def ^:private client
   (delay
-    (when @memcache-address
-      (blackhole-memcache-logging)
-      (let [addresses (AddrUtil/getAddresses @memcache-address)
-            factory (BinaryConnectionFactory.)
-            c (MemcachedClient. factory addresses)]
-        (.addShutdownHook (Runtime/getRuntime) (Thread. #(.shutdown c)))
-        c))))
-
-(defn connected? []
-  @client)
+    (if @memcache-address
+      (do
+        (blackhole-memcache-logging)
+        (let [addresses (AddrUtil/getAddresses @memcache-address)
+              factory (BinaryConnectionFactory.)
+              c (MemcachedClient. factory addresses)]
+          (.addShutdownHook (Runtime/getRuntime) (Thread. #(.shutdown c)))
+          c))
+      (log/warn "Caching is disabled (:memcache-address not configured)"))))
 
 (defn rget
   [k & {:keys [throw?]}]
-  (let [v (try
-            (.get @client k)
-            (catch Exception e
-              (if throw?
-                (throw e)
-                (log/warn k "not retrieved from cache due to" e))))]
-    (if v
-      (log/debug "Cache hit:" k)
-      (log/debug "Cache miss:" k))
-    (if v
-      (nippy/thaw v)
-      v)))
+  (when @client
+    (let [v (try
+              (.get @client k)
+              (catch Exception e
+                (if throw?
+                  (throw e)
+                  (log/warn k "not retrieved from cache due to" e))))]
+      (if v
+        (log/debug "Cache hit:" k)
+        (log/debug "Cache miss:" k))
+      (if v
+        (nippy/thaw v)
+        v))))
 
 (defn rset
   ([k v] (rset k v 0))
   ([k v timeout & {:keys [throw?]}]
-   (try
-     (.set @client k timeout (nippy/freeze v))
-     (log/debug "Added to cache:" k)
-     (catch Exception e
-       (if throw?
-         (throw e)
-         (log/warn k "not added to cache due to" e))))
+   (when @client
+     (try
+       (.set @client k timeout (nippy/freeze v))
+       (log/debug "Added to cache:" k)
+       (catch Exception e
+         (if throw?
+           (throw e)
+           (log/warn k "not added to cache due to" e)))))
    v))
 
 (defn rtouch
   [k timeout & {:keys [throw?]}]
-  (try
-    (.touch @client k timeout)
-    (log/debug "Updated timeout for" k "to" timeout)
-    (catch Exception e
-      (if throw?
-        (throw e)
-        (log/warn k "not touched due to" e)))))
-
+  (when @client
+    (try
+      (.touch @client k timeout)
+      (log/debug "Updated timeout for" k "to" timeout)
+      (catch Exception e
+        (if throw?
+          (throw e)
+          (log/warn k "not touched due to" e))))))
 
 (defn radd
   ([k v] (radd k v 0))
   ([k v timeout & {:keys [throw?]}]
-   (try
-     (let [res (.get (.add @client k timeout (nippy/freeze v)))]
-       (if res
-         (do
-           (log/debug "Added to cache:" k)
-           v)
-         (log/debug "Already in cache:" k)))
-     (catch Exception e
-       (if throw?
-         (throw e)
-         (log/warn k "not added to cache due to" e))))))
+   (when @client
+     (try
+       (let [res (.get (.add @client k timeout (nippy/freeze v)))]
+         (if res
+           (do
+             (log/debug "Added to cache:" k)
+             v)
+           (log/debug "Already in cache:" k)))
+       (catch Exception e
+         (if throw?
+           (throw e)
+           (log/warn k "not added to cache due to" e)))))))
 
 (defn rincr
   [k by timeout & {:keys [throw? default] :or {default 0}}]
-  (try
-    (let [res (.incr @client k by default timeout)]
-      (log/debug "Incremented value for" k "by:" by "to" res)
-      res)
-    (catch Exception e
-      (if throw?
-        (throw e)
-        (log/warn k "not incremented due to" e)))))
+  (when @client
+    (try
+      (let [res (.incr @client k by default timeout)]
+        (log/debug "Incremented value for" k "by:" by "to" res)
+        res)
+      (catch Exception e
+        (if throw?
+          (throw e)
+          (log/warn k "not incremented due to" e))))))
 
 (defn rdecr
   [k by timeout & {:keys [throw? default] :or {default 0}}]
-  (try
-    (let [res (.decr @client k by default timeout)]
-      (log/debug "Decremented value for" k "by:" by "to" res)
-      res)
-    (catch Exception e
-      (if throw?
-        (throw e)
-        (log/warn k "not decremented due to" e)))))
+  (when @client
+    (try
+      (let [res (.decr @client k by default timeout)]
+        (log/debug "Decremented value for" k "by:" by "to" res)
+        res)
+      (catch Exception e
+        (if throw?
+          (throw e)
+          (log/warn k "not decremented due to" e))))))
 
 (defn radd-or-get
   ([k v] (radd-or-get k v 0))
@@ -176,13 +182,14 @@
 
 (defn rdelete
   [k & {:keys [throw?]}]
-  (try
-    (.delete @client k)
-    (log/debug "Deleted from cache:" k)
-    (catch Exception e
-      (if throw?
-        (throw e)
-        (log/warn k "not deleted from cache due to" e)))))
+  (when @client
+    (try
+      (.delete @client k)
+      (log/debug "Deleted from cache:" k)
+      (catch Exception e
+        (if throw?
+          (throw e)
+          (log/warn k "not deleted from cache due to" e))))))
 
 (defn rget-or-load
   ([k loader] (rget-or-load k loader 0))
@@ -201,12 +208,13 @@
   ([k loader>] (rget-or-load> k loader> 0))
   ([k loader> timeout & {:keys [throw?]}]
    (do-get-or-load> k loader> timeout
-                    {:getf (fn [k] (rget k :throw? throw?))
-                     :setf (fn [k v timeout] (rset k v timeout :throw? throw?))
+                    {:getf   (fn [k] (rget k :throw? throw?))
+                     :setf   (fn [k v timeout] (rset k v timeout :throw? throw?))
                      :states rget-or-load-states})))
 
 
 ;;; LOCAL CACHE
+
 
 (def ^:private local-cache (-> (ExpiringMap/builder) (.variableExpiration) (.build)))
 
@@ -240,12 +248,13 @@
 (defn lget-or-load>
   [k loader> timeout]
   (do-get-or-load> k loader> timeout
-                   {:getf lget
-                    :setf lset
+                   {:getf   lget
+                    :setf   lset
                     :states lget-or-load-states}))
 
 
 ;;; 2 LEVEL CACHE (LOCAL + REMOTE)
+
 
 (defn get
   "Gets value from a 2-level cache (local+memcache). If key is not in local
@@ -253,24 +262,24 @@
   value is returned and optionally put in local cache (if timeout argument
   is specified)."
   ([k]
-    (or (lget k)
-        (when (connected?) (rget k :throw? false))))
+   (or (lget k)
+       (when @client (rget k :throw? false))))
   ([k timeout]
-    (or (lget k)
-        (when (connected?)
-          (when-let [v (rget k :throw? false)]
-            (lset k v timeout))))))
+   (or (lget k)
+       (when @client
+         (when-let [v (rget k :throw? false)]
+           (lset k v timeout))))))
 
 (defn set
   "Puts value in a 2-level cache (local+memcache)."
   [k v timeout]
-  (when (connected?) (rset k v timeout :throw? false))
+  (when @client (rset k v timeout :throw? false))
   (lset k v timeout))
 
 (defn delete
   "Deletes value from a 2-level cache (local+memcache)."
   [k]
-  (when (connected?) (rdelete k :throw? false))
+  (when @client (rdelete k :throw? false))
   (ldelete k))
 
 (defn get-or-load
@@ -294,6 +303,6 @@
   value."
   [k loader> timeout]
   (do-get-or-load> k loader> timeout
-                   {:getf (fn [k] (get k timeout))
-                    :setf set
+                   {:getf   (fn [k] (get k timeout))
+                    :setf   set
                     :states get-or-load-states}))
