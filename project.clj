@@ -8,7 +8,7 @@
   :dependencies [[org.clojure/clojure "1.8.0"]
                  [net.jodah/expiringmap "0.4.1"]
                  [net.spy/spymemcached "2.12.2"]
-                 [com.taoensso/nippy "2.13.0"]
+                 [com.taoensso/nippy "2.10.0"]
                  [fullcontact/full.core "0.10.1"
                   :exclusions [org.clojure/clojurescript]]
                  [fullcontact/full.async "0.9.0"]]
