@@ -97,18 +97,22 @@
 (defn rget
   [k & {:keys [throw?]}]
   (when @client
-    (let [v (try
+    (let [raw-v (try
               (.get @client k)
               (catch Exception e
                 (if throw?
                   (throw e)
-                  (log/warn k "not retrieved from cache due to" e))))]
+                  (log/warn k "not retrieved from cache due to" e))))
+          v (try
+              (and raw-v (nippy/thaw raw-v))
+              (catch Exception e
+                (if throw?
+                  (throw e)
+                  (log/warn "Failed to deserialize bytes for key" k))))]
       (if v
         (log/debug "Cache hit:" k)
         (log/debug "Cache miss:" k))
-      (if v
-        (nippy/thaw v)
-        v))))
+      v)))
 
 (defn rset
   ([k v] (rset k v 0))

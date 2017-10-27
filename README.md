@@ -5,6 +5,8 @@
 
 2 level caching (In memory + memcache) for Clojure.
 
+Nippy is used internally to serialize values in memcache. full.cache 1.0.1 is
+using nippy `2.10.0`, full.cache `1.1.0` is using nippy `2.13.0`.
 
 ## Configuration
 
