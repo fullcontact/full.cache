@@ -55,3 +55,10 @@ combinations (local only, remote only, or both)
       42))
   100)
 ```
+
+## Changelog
+
+2.0.0 - **Breaking** change: Serialization of memcache values (in the "remote" cache) changed to newer version of nippy.
+          - This means memcached would need to be cleared, or `:throw?` would need to be set to `false` temporarily 
+            for the cache to reset itself to newly serialized values. Could increase load on downstream resources 
+            temporarily as well as any cache clearing would.
