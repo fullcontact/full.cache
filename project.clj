@@ -1,4 +1,4 @@
-(defproject fullcontact/full.cache "1.1.0"
+(defproject fullcontact/full.cache "1.1.1-SNAPSHOT"
   :description "In-memory + memcache caching for Clojure with async loading."
   :url "https://github.com/fullcontact/full.cache"
   :license {:name "Eclipse Public License - v 1.0"
