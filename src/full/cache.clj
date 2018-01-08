@@ -46,7 +46,7 @@
     ::none))
 
 (defn- do-get-or-load>
-  [k loader> timeout {:keys [setf getf states]}]
+  [k loader> timeout {:keys [setf getf states allow-nil?]}]
   (go-try
     (none->nil                                              ; :none keyword means that nil value is cached, convert back to nil
       (or (getf k)
@@ -60,7 +60,9 @@
                     v (if (instance? ReadPort r)
                         (<! r)
                         r)]
-                (when (not (instance? Throwable v))
+                (when (and (not (instance? Throwable v))
+                           (or v
+                               (and (not v) allow-nil?)))
                   ; convert nil to ::none so that we can cache nils as well
                   (setf k (nil->none v) timeout))
                 (swap! states dissoc k)
@@ -210,11 +212,12 @@
   "Gets value from cache or loads it via async function, ensuring there's only one loader active for given key (ie.
   it's synchronized for given key). Loader function must return core.async channel."
   ([k loader>] (rget-or-load> k loader> 0))
-  ([k loader> timeout & {:keys [throw?]}]
+  ([k loader> timeout & {:keys [throw? allow-nil?] :or {allow-nil? true}}]
    (do-get-or-load> k loader> timeout
                     {:getf   (fn [k] (rget k :throw? throw?))
                      :setf   (fn [k v timeout] (rset k v timeout :throw? throw?))
-                     :states rget-or-load-states})))
+                     :states rget-or-load-states
+                     :allow-nil? allow-nil?})))
 
 
 ;;; LOCAL CACHE
