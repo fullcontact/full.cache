@@ -61,8 +61,8 @@
                         (<! r)
                         r)]
                 (when (and (not (instance? Throwable v))
-                           (or v
-                               (and (not v) allow-nil?)))
+                           (or (some? v)
+                               allow-nil?))
                   ; convert nil to ::none so that we can cache nils as well
                   (setf k (nil->none v) timeout))
                 (swap! states dissoc k)
