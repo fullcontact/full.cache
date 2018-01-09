@@ -253,11 +253,12 @@
 (def ^:private lget-or-load-states (atom {}))
 
 (defn lget-or-load>
-  [k loader> timeout]
+  [k loader> timeout & {:keys [allow-nil?] :or {allow-nil? true}}]
   (do-get-or-load> k loader> timeout
                    {:getf   lget
                     :setf   lset
-                    :states lget-or-load-states}))
+                    :states lget-or-load-states
+                    :allow-nil? allow-nil?}))
 
 
 ;;; 2 LEVEL CACHE (LOCAL + REMOTE)
