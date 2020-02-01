@@ -7,6 +7,7 @@
 
 Nippy is used internally to serialize values in memcache. full.cache 1.0.1 is
 using nippy `2.10.0`, full.cache `1.1.0` is using nippy `2.13.0`.
+full.cache `1.2.0` is using nippy `2.14.0` and prefixes cache keys with `n2.14.0-`
 
 ## Configuration
 
