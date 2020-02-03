@@ -100,14 +100,14 @@
 
 (defn rget
   [k & {:keys [throw?]}]
-  (let [kp (prefixkey k)]
-    (when @client
-    (let [raw-v (try
-              (.get @client kp)
-              (catch Exception e
-                (if throw?
-                  (throw e)
-                  (log/warn kp "not retrieved from cache due to" e))))
+  (when @client
+    (let [kp (prefixkey k)
+          raw-v (try
+                  (.get @client kp)
+                  (catch Exception e
+                    (if throw?
+                      (throw e)
+                      (log/warn kp "not retrieved from cache due to" e))))
           v (try
               (and raw-v (nippy/thaw raw-v))
               (catch Exception e
@@ -117,7 +117,7 @@
       (if v
         (log/debug "Cache hit:" kp)
         (log/debug "Cache miss:" kp))
-      v))))
+      v)))
 
 (defn rset
   ([k v] (rset k v 0))
@@ -148,10 +148,10 @@
 (defn radd
   ([k v] (radd k v 0))
   ([k v timeout & {:keys [throw?]}]
-   (let [kp (prefixkey k)]
    (when @client
      (try
-       (let [res (.get (.add @client kp timeout (nippy/freeze v)))]
+       (let [kp (prefixkey k)
+             res (.get (.add @client kp timeout (nippy/freeze v)))]
          (if res
            (do
              (log/debug "Added to cache:" kp)
@@ -160,33 +160,33 @@
        (catch Exception e
          (if throw?
            (throw e)
-           (log/warn kp "not added to cache due to" e))))))))
+           (log/warn kp "not added to cache due to" e)))))))
 
 (defn rincr
   [k by timeout & {:keys [throw? default] :or {default 0}}]
-  (let [kp (prefixkey k)]
   (when @client
     (try
-      (let [res (.incr @client kp by default timeout)]
+      (let [kp (prefixkey k)
+            res (.incr @client kp by default timeout)]
         (log/debug "Incremented value for" kp "by:" by "to" res)
         res)
       (catch Exception e
         (if throw?
           (throw e)
-          (log/warn kp "not incremented due to" e)))))))
+          (log/warn kp "not incremented due to" e))))))
 
 (defn rdecr
   [k by timeout & {:keys [throw? default] :or {default 0}}]
-  (let [kp (prefixkey k)]
-    (when @client
+  (when @client
     (try
-      (let [res (.decr @client kp by default timeout)]
+      (let [kp (prefixkey k)
+            res (.decr @client kp by default timeout)]
         (log/debug "Decremented value for" kp "by:" by "to" res)
         res)
       (catch Exception e
         (if throw?
           (throw e)
-          (log/warn kp "not decremented due to" e)))))))
+          (log/warn kp "not decremented due to" e))))))
 
 (defn radd-or-get
   ([k v] (radd-or-get k v 0))
