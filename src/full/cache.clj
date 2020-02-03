@@ -18,7 +18,7 @@
 
 ;;; ASYNC LOADING SUPPORT
 
-(defn- prefixkey [k]
+(defn prefixkey [k]
   (str "n2.14.0-" k))
 
 (defn- get-or-create-state [states k]
