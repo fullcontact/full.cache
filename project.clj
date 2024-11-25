@@ -1,4 +1,4 @@
-(defproject fullcontact/full.cache "1.2.1"
+(defproject fullcontact/full.cache "1.3.0"
   :description "In-memory + memcache caching for Clojure with async loading."
   :url "https://github.com/fullcontact/full.cache"
   :license {:name "Eclipse Public License - v 1.0"
@@ -7,8 +7,8 @@
   :deploy-repositories [["releases" {:url "https://clojars.org/repo/" :creds :gpg}]]
   :dependencies [[org.clojure/clojure "1.10.1"]
                  [net.jodah/expiringmap "0.4.1"]
-                 [net.spy/spymemcached "2.12.2"]
                  [com.taoensso/nippy "2.14.0"]
+                 [com.amazonaws/elasticache-java-cluster-client "1.2.2"]
                  [fullcontact/full.core "1.1.1"
                   :exclusions [org.clojure/clojurescript]]
                  [fullcontact/full.async "1.1.0"]]

@@ -1,5 +1,6 @@
 (ns full.cache
   (:require [clojure.walk :refer [postwalk]]
+            [clojure.string :as str]
             [clojure.core.async :refer [>! <! chan mult tap close!]]
             [taoensso.nippy :as nippy]
             [full.core.log :as log]
@@ -9,11 +10,15 @@
            (net.jodah.expiringmap ExpiringMap ExpiringMap$ExpirationPolicy)
            (java.util.concurrent TimeUnit)
            (clojure.core.async.impl.protocols ReadPort)
-           (net.spy.memcached MemcachedClient BinaryConnectionFactory AddrUtil))
+           (java.security.cert CertificateFactory)
+           (java.security KeyStore)
+           (javax.net.ssl SSLContext TrustManagerFactory)
+           (net.spy.memcached BinaryConnectionFactory ConnectionFactoryBuilder MemcachedClient ConnectionFactoryBuilder AddrUtil))
   (:refer-clojure :exclude [set get]))
 
 
 (def memcache-address (opt :memcache-address :default nil))
+(def memcache-tls- (opt :memcache-tls :default nil))
 
 
 ;;; ASYNC LOADING SUPPORT
@@ -86,13 +91,30 @@
   (System/setProperty "net.spy.log.LoggerImpl" "net.spy.memcached.compat.log.SunLogger")
   (.setLevel (Logger/getLogger "net.spy.memcached") Level/SEVERE))
 
+(defn create-connection-factory [use-tls]
+  (if use-tls
+    (do
+      (let [factory (ConnectionFactoryBuilder.)
+            tmf (TrustManagerFactory/getInstance (TrustManagerFactory/getDefaultAlgorithm))
+            ^KeyStore keystore nil
+            _ (.init tmf keystore)
+            ssl-context (SSLContext/getInstance "TLS")
+            _ (.init ssl-context nil (.getTrustManagers tmf) nil)
+            _ (.setSSLContext factory ssl-context)
+            host (some-> @memcache-address
+                         (str/split #":")
+                         (first))
+            _ (.setHostnameForTlsVerification factory host)]
+        (.build factory)))
+    (BinaryConnectionFactory.)))
+
 (def ^:private client
   (delay
     (if @memcache-address
       (do
         (blackhole-memcache-logging)
         (let [addresses (AddrUtil/getAddresses @memcache-address)
-              factory (BinaryConnectionFactory.)
+              factory (create-connection-factory @memcache-tls-)
               c (MemcachedClient. factory addresses)]
           (.addShutdownHook (Runtime/getRuntime) (Thread. #(.shutdown c)))
           c))
